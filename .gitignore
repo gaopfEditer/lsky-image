@@ -1,0 +1,100 @@
+# Lsky Pro 项目 .gitignore
+
+# 安装锁定文件
+/installed.lock
+/upgrading.lock
+
+# 压缩文件
+/*.zip
+*.zip
+
+# Node.js 依赖
+/node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Laravel 相关
+/public/hot
+/public/storage
+/public/js/custom.js
+/storage/*.key
+/storage/app/public
+/storage/framework/cache/data
+/storage/framework/sessions
+/storage/framework/testing
+/storage/framework/views
+/storage/logs/*.log
+/vendor
+.env
+.env.backup
+.env.local
+.env.production
+.env.testing
+.phpunit.result.cache
+
+# 上传的图片文件
+/public/i
+/public/thumbnails
+/public/uploads
+
+# 临时文件
+/public/tmp_*
+/storage/app/temp
+/storage/app/uploads
+
+# 测试文件
+/test_images.zip
+/create_test_zip.py
+/test_zip_curl.*
+/test_*.html
+
+# IDE 和编辑器
+/.idea
+/.vscode
+/.vs
+*.swp
+*.swo
+*~
+
+# 操作系统
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 日志文件
+*.log
+logs/
+
+# 缓存文件
+.cache/
+.parcel-cache/
+
+# 依赖管理
+composer.phar
+package-lock.json
+
+# 部署相关
+docker-compose.override.yml
+Homestead.json
+Homestead.yaml
+Vagrantfile
+
+# 备份文件
+*.bak
+*.backup
+*.old
+
+# 编译文件
+/public/css/app.css
+/public/js/app.js
+/public/mix-manifest.json
+
+# 其他
+*.tmp
+*.temp

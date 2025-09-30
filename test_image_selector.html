@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Selector 全选功能测试</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .images-item {
+            width: 150px;
+            height: 150px;
+            background: #f0f0f0;
+            margin: 10px;
+            display: inline-block;
+            position: relative;
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+        .images-item.selected {
+            border-color: #007bff;
+        }
+        .image-selector {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            z-index: 2;
+            cursor: pointer;
+        }
+        .image-selector i {
+            background: white;
+            border-radius: 50%;
+            padding: 2px;
+        }
+        .operate-btn {
+            padding: 8px 16px;
+            margin: 5px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .operate-btn:hover {
+            background: #e9ecef;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <button class="operate-btn" data-operate="select-all">
+            <i class="fas fa-square"></i> 全选
+        </button>
+        <button class="operate-btn" data-operate="clear">
+            <i class="fas fa-times"></i> 清除选择
+        </button>
+        <div id="status">已选择: 0 张图片</div>
+    </div>
+
+    <div id="images-grid">
+        <a href="javascript:void(0)" data-id="1" class="images-item">
+            <div class="image-selector">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div style="padding: 20px;">图片1</div>
+        </a>
+        <a href="javascript:void(0)" data-id="2" class="images-item">
+            <div class="image-selector">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div style="padding: 20px;">图片2</div>
+        </a>
+        <a href="javascript:void(0)" data-id="3" class="images-item">
+            <div class="image-selector">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div style="padding: 20px;">图片3</div>
+        </a>
+        <a href="javascript:void(0)" data-id="4" class="images-item">
+            <div class="image-selector">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div style="padding: 20px;">图片4</div>
+        </a>
+        <a href="javascript:void(0)" data-id="5" class="images-item">
+            <div class="image-selector">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div style="padding: 20px;">图片5</div>
+        </a>
+    </div>
+
+    <script>
+        let selected = [];
+
+        // 模拟选择功能 - 点击image-selector
+        $('.image-selector').click(function(e) {
+            e.stopPropagation();
+            let $imageItem = $(this).closest('.images-item');
+            $imageItem.toggleClass('selected');
+            let id = $imageItem.data('id');
+            if ($imageItem.hasClass('selected')) {
+                if (!selected.includes(id)) {
+                    selected.push(id);
+                }
+            } else {
+                selected = selected.filter(item => item !== id);
+            }
+            updateStatus();
+            updateSelectAllButton();
+            console.log('当前选中:', selected);
+        });
+
+        // 全选功能
+        function selectAllImages() {
+            let allImageSelectors = $('#images-grid').find('.image-selector');
+
+            if (selected.length === allImageSelectors.length) {
+                // 取消全选
+                $('.images-item').removeClass('selected');
+                selected = [];
+            } else {
+                // 全选 - 通过点击所有image-selector来实现
+                allImageSelectors.each(function() {
+                    let $imageItem = $(this).closest('.images-item');
+                    if (!$imageItem.hasClass('selected')) {
+                        $imageItem.addClass('selected');
+                        let id = $imageItem.data('id');
+                        if (!selected.includes(id)) {
+                            selected.push(id);
+                        }
+                    }
+                });
+            }
+            updateStatus();
+            updateSelectAllButton();
+            console.log('全选后选中:', selected);
+        }
+
+        // 清除选择
+        function clearSelection() {
+            $('.images-item').removeClass('selected');
+            selected = [];
+            updateStatus();
+            updateSelectAllButton();
+            console.log('清除选择');
+        }
+
+        // 更新状态显示
+        function updateStatus() {
+            $('#status').text(`已选择: ${selected.length} 张图片`);
+        }
+
+        // 更新全选按钮状态
+        function updateSelectAllButton() {
+            let allImageSelectors = $('#images-grid').find('.image-selector');
+            let $selectAllBtn = $('[data-operate="select-all"]');
+            if (selected.length === allImageSelectors.length && allImageSelectors.length > 0) {
+                $selectAllBtn.find('i').removeClass('fa-square').addClass('fa-check-square');
+            } else {
+                $selectAllBtn.find('i').removeClass('fa-check-square').addClass('fa-square');
+            }
+        }
+
+        // 操作按钮点击
+        $('[data-operate]').click(function() {
+            let operate = $(this).data('operate');
+            switch (operate) {
+                case 'select-all':
+                    selectAllImages();
+                    break;
+                case 'clear':
+                    clearSelection();
+                    break;
+            }
+        });
+
+        // 初始化
+        updateStatus();
+        updateSelectAllButton();
+    </script>
+</body>
+</html>

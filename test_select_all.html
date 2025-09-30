@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>全选功能测试</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .image-item {
+            width: 100px;
+            height: 100px;
+            background: #f0f0f0;
+            margin: 10px;
+            display: inline-block;
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+        .image-item.selected {
+            border-color: #007bff;
+        }
+        .operate-btn {
+            padding: 8px 16px;
+            margin: 5px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .operate-btn:hover {
+            background: #e9ecef;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <button class="operate-btn" data-operate="select-all">
+            <i class="fas fa-square"></i> 全选
+        </button>
+        <button class="operate-btn" data-operate="clear">
+            <i class="fas fa-times"></i> 清除选择
+        </button>
+    </div>
+
+    <div id="images-grid">
+        <div class="image-item" data-id="1">图片1</div>
+        <div class="image-item" data-id="2">图片2</div>
+        <div class="image-item" data-id="3">图片3</div>
+        <div class="image-item" data-id="4">图片4</div>
+        <div class="image-item" data-id="5">图片5</div>
+    </div>
+
+    <script>
+        let selected = [];
+
+        // 模拟选择功能
+        $('.image-item').click(function() {
+            $(this).toggleClass('selected');
+            let id = $(this).data('id');
+            if ($(this).hasClass('selected')) {
+                if (!selected.includes(id)) {
+                    selected.push(id);
+                }
+            } else {
+                selected = selected.filter(item => item !== id);
+            }
+            updateSelectAllButton();
+            console.log('当前选中:', selected);
+        });
+
+        // 全选功能
+        function selectAllImages() {
+            let allImages = $('#images-grid').find('.image-item');
+
+            if (selected.length === allImages.length) {
+                // 取消全选
+                allImages.removeClass('selected');
+                selected = [];
+            } else {
+                // 全选
+                allImages.addClass('selected');
+                selected = allImages.map(function() {
+                    return $(this).data('id');
+                }).get();
+            }
+            updateSelectAllButton();
+            console.log('全选后选中:', selected);
+        }
+
+        // 更新全选按钮状态
+        function updateSelectAllButton() {
+            let allImages = $('#images-grid').find('.image-item');
+            let $selectAllBtn = $('[data-operate="select-all"]');
+            if (selected.length === allImages.length && allImages.length > 0) {
+                $selectAllBtn.find('i').removeClass('fa-square').addClass('fa-check-square');
+            } else {
+                $selectAllBtn.find('i').removeClass('fa-check-square').addClass('fa-square');
+            }
+        }
+
+        // 清除选择
+        function clearSelection() {
+            $('.image-item').removeClass('selected');
+            selected = [];
+            updateSelectAllButton();
+            console.log('清除选择');
+        }
+
+        // 操作按钮点击
+        $('[data-operate]').click(function() {
+            let operate = $(this).data('operate');
+            switch (operate) {
+                case 'select-all':
+                    selectAllImages();
+                    break;
+                case 'clear':
+                    clearSelection();
+                    break;
+            }
+        });
+    </script>
+</body>
+</html>
