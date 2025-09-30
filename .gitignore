@@ -16,9 +16,6 @@ yarn-error.log*
 lerna-debug.log*
 
 # Laravel 相关
-/public/hot
-/public/storage
-/public/js/custom.js
 /storage/*.key
 /storage/app/public
 /storage/framework/cache/data
@@ -34,10 +31,6 @@ lerna-debug.log*
 .env.testing
 .phpunit.result.cache
 
-# 上传的图片文件
-/public/i
-/public/thumbnails
-/public/uploads
 
 # 临时文件
 /public/tmp_*
@@ -90,10 +83,10 @@ Vagrantfile
 *.backup
 *.old
 
-# 编译文件
-/public/css/app.css
-/public/js/app.js
-/public/mix-manifest.json
+# 上传的图片文件
+/public/i
+/public/uploads
+
 /public/.well-known/
 /resources/imgs/
 
