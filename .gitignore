@@ -94,6 +94,8 @@ Vagrantfile
 /public/css/app.css
 /public/js/app.js
 /public/mix-manifest.json
+/public/.well-known/
+/resources/imgs/
 
 # 其他
 *.tmp
