@@ -1,47 +1,86 @@
 @section('title', '图片管理')
 
+<style>
+    .image-40 { width: 160px; height: 90px; }
+    .image-200 { width: 96px; height: 54px; }
+    .image-500 { width: 96px; height: 54px; }
+    .image-1000 { width: 96px; height: 54px; }
+</style>
+
 <x-app-layout>
     <div class="p-2">
-        <form class="w-full flex items-center justify-center py-3 md:py-5 lg:py-7" action="{{ route('admin.images') }}" method="get">
-            <div class="w-full md:w-[70%] lg:w-[60%] flex flex-col">
-                <input class="px-4 py-2 text-md rounded-md bg-white" name="keywords" placeholder="输入关键字回车搜索..." value="{{ request('keywords') }}" />
-                <div class="w-full flex justify-end">
-                    <a href="javascript:void(0)" id="grammar" class="inline-block mt-2 text-xs text-gray-600">高级搜索语法</a>
+        <!-- 筛选和分页控制区域 -->
+        <div class="w-full flex flex-col md:flex-row items-center justify-between py-3 md:py-5 lg:py-7 bg-white rounded-lg shadow-sm mb-4 px-4">
+            <!-- 时间筛选 -->
+            <div class="w-full md:w-auto flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-4 mb-4 md:mb-0">
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm font-medium text-gray-700">开始时间:</label>
+                    <input type="datetime-local" id="start_time" class="px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="{{ request('start_time') }}">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm font-medium text-gray-700">结束时间:</label>
+                    <input type="datetime-local" id="end_time" class="px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="{{ request('end_time') }}">
+                </div>
+                <button id="filter_btn" class="px-4 py-1 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    筛选
+                </button>
+                <button id="clear_filter" class="px-4 py-1 bg-gray-500 text-white text-sm rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                    清除
+                </button>
+            </div>
+
+            <!-- 分页大小和批量操作 -->
+            <div class="w-full md:w-auto flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-4">
+                <!-- 分页大小选择 -->
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm font-medium text-gray-700">每页显示:</label>
+                    <select id="per_page" class="px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="40" {{ request('per_page', 40) == 40 ? 'selected' : '' }}>40</option>
+                        <option value="200" {{ request('per_page') == 200 ? 'selected' : '' }}>200</option>
+                        <option value="500" {{ request('per_page') == 500 ? 'selected' : '' }}>500</option>
+                        <option value="1000" {{ request('per_page') == 1000 ? 'selected' : '' }}>1000</option>
+                    </select>
+                </div>
+
+                <!-- 批量操作 -->
+                <div class="flex items-center space-x-2">
+        <button id="select_all" class="px-3 py-1 text-white text-sm rounded-md focus:outline-none focus:ring-2" style="display: block !important; visibility: visible !important; background-color: #ff8c00; border: none;" onmouseover="this.style.backgroundColor='#ff7f00'" onmouseout="this.style.backgroundColor='#ff8c00'">
+            全选
+        </button>
+                    <button id="select_none" class="px-3 py-1 bg-gray-500 text-white text-sm rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500" style="display: none;">
+                        取消全选
+                    </button>
+                    <button id="bulk_delete" class="px-3 py-1 bg-red-500 text-white text-sm rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500" disabled>
+                        批量删除
+                    </button>
                 </div>
             </div>
-        </form>
+        </div>
+
 
         @if($images->isNotEmpty())
-            <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 gap-2">
+            <div id="images-grid" class="flex flex-wrap gap-2" data-per-page="{{ request('per_page', 40) }}">
                 @foreach($images as $image)
-                <div data-json='{{ $image->toJson() }}' class="item relative flex flex-col items-center justify-center overflow-hidden rounded-md cursor-pointer group">
+                <div data-json='{{ $image->toJson() }}' data-id="{{ $image->id }}" class="item relative flex flex-col items-center justify-center overflow-hidden rounded-md cursor-pointer group">
+                    <!-- 选择复选框 -->
+                    <div class="absolute top-1 right-1 z-[2]" onclick="event.stopPropagation();">
+                        <input type="checkbox" class="image-checkbox w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" data-id="{{ $image->id }}" onclick="event.stopPropagation();">
+                    </div>
+
                     <div class="flex absolute top-1 left-1 z-[1] space-x-1">
                         @if($image->is_unhealthy)
-                            <span class="bg-red-500 text-white rounded-md text-sm px-1 py-0">违规</span>
+                            <span class="bg-red-500 text-white rounded-md text-xs px-1 py-0">违规</span>
                         @endif
                         @if($image->extension === 'gif')
-                            <span class="bg-white rounded-md text-sm px-1 py-0">Gif</span>
+                            <span class="bg-white rounded-md text-xs px-1 py-0">Gif</span>
                         @endif
                     </div>
-                    <img class="w-full h-36 object-cover transition-all group-hover:brightness-50" src="{{ $image->thumb_url }}">
+                    <img class="image-40 object-cover transition-all group-hover:brightness-50 mx-auto" src="{{ $image->thumb_url }}">
 
                     <div class="absolute top-2 right-2 space-x-1 hidden group-hover:flex">
                         <i data-id="{{ $image->id }}" class="delete fas fa-trash text-red-500 w-4 h-4"></i>
                     </div>
 
-                    <div class="p-2 bg-white w-full flex items-center">
-                        @if($image->user)
-                            <div class="item-user flex items-center">
-                                <img src="{{ $image->user->avatar }}" class="w-6 h-6 rounded-full">
-                                <span class="ml-2 truncate group-hover:text-blue-500">{{ $image->user->name }}</span>
-                            </div>
-                        @else
-                            <div class="w-6 h-6 rounded-full overflow-hidden">
-                                <x-default-avatar/>
-                            </div>
-                            <span class="ml-2">游客</span>
-                        @endif
-                    </div>
                 </div>
                 @endforeach
             </div>
@@ -318,9 +357,170 @@
         </table>
     </script>
 
+
 @push('scripts')
         <script>
             let modal = Alpine.store('modal');
+            let selectedImages = new Set();
+            const PUBLIC_PERMISSION = 1; // \App\Enums\ImagePermission::Public
+
+            // 筛选功能
+            function applyFilter() {
+                const startTime = document.getElementById('start_time').value;
+                const endTime = document.getElementById('end_time').value;
+                const perPage = document.getElementById('per_page').value;
+
+                const url = new URL(window.location);
+                if (startTime) url.searchParams.set('start_time', startTime);
+                if (endTime) url.searchParams.set('end_time', endTime);
+                if (perPage) url.searchParams.set('per_page', perPage);
+
+                window.location.href = url.toString();
+            }
+
+            // 清除筛选
+            function clearFilter() {
+                const url = new URL(window.location);
+                url.searchParams.delete('start_time');
+                url.searchParams.delete('end_time');
+                url.searchParams.delete('per_page');
+                window.location.href = url.toString();
+            }
+
+            // 调整图片flex布局
+            function adjustGridLayout() {
+                const perPage = document.getElementById('per_page').value;
+                const grid = document.getElementById('images-grid');
+                const items = document.querySelectorAll('.item');
+
+                // 使用flex布局
+                grid.className = 'flex flex-wrap gap-2';
+
+                if (perPage >= 500) {
+                    // 500张/页：使用CSS类
+                    grid.className += ' gap-1';
+                    items.forEach(item => {
+                        const img = item.querySelector('img');
+                        if (img) {
+                            img.className = 'image-500 object-cover transition-all group-hover:brightness-50 mx-auto';
+                        }
+                        // 隐藏标签
+                        const labels = item.querySelectorAll('.absolute.top-1.left-1 span');
+                        labels.forEach(label => label.style.display = 'none');
+                    });
+                } else if (perPage >= 200) {
+                    // 200张/页：使用CSS类
+                    grid.className += ' gap-1';
+                    items.forEach(item => {
+                        const img = item.querySelector('img');
+                        if (img) {
+                            img.className = 'image-200 object-cover transition-all group-hover:brightness-50 mx-auto';
+                        }
+                    });
+                } else {
+                    // 40张/页：使用CSS类
+                    grid.className += ' gap-2';
+                    items.forEach(item => {
+                        const img = item.querySelector('img');
+                        if (img) {
+                            img.className = 'image-40 object-cover transition-all group-hover:brightness-50 mx-auto';
+                        }
+                        // 显示标签
+                        const labels = item.querySelectorAll('.absolute.top-1.left-1 span');
+                        labels.forEach(label => label.style.display = '');
+                    });
+                }
+            }
+
+            // 全选功能
+            function selectAll() {
+                console.log('全选按钮被点击');
+                const checkboxes = document.querySelectorAll('.image-checkbox');
+                console.log('找到复选框数量:', checkboxes.length);
+                const allSelected = Array.from(checkboxes).every(cb => cb.checked);
+                const selectAllBtn = document.getElementById('select_all');
+                const selectNoneBtn = document.getElementById('select_none');
+
+                checkboxes.forEach(cb => {
+                    cb.checked = !allSelected;
+                    if (cb.checked) {
+                        selectedImages.add(cb.dataset.id);
+                    } else {
+                        selectedImages.delete(cb.dataset.id);
+                    }
+                });
+
+                // 更新按钮显示
+                if (!allSelected) {
+                    selectAllBtn.style.display = 'none';
+                    selectNoneBtn.style.display = 'inline-block';
+                } else {
+                    selectAllBtn.style.display = 'inline-block';
+                    selectNoneBtn.style.display = 'none';
+                }
+
+                updateBulkDeleteButton();
+            }
+
+            // 取消全选功能
+            function selectNone() {
+                const checkboxes = document.querySelectorAll('.image-checkbox');
+                const selectAllBtn = document.getElementById('select_all');
+                const selectNoneBtn = document.getElementById('select_none');
+
+                checkboxes.forEach(cb => {
+                    cb.checked = false;
+                    selectedImages.delete(cb.dataset.id);
+                });
+
+                selectAllBtn.style.display = 'inline-block';
+                selectNoneBtn.style.display = 'none';
+
+                updateBulkDeleteButton();
+            }
+
+            // 更新批量删除按钮状态
+            function updateBulkDeleteButton() {
+                const bulkDeleteBtn = document.getElementById('bulk_delete');
+                bulkDeleteBtn.disabled = selectedImages.size === 0;
+                bulkDeleteBtn.textContent = selectedImages.size > 0 ? `批量删除 (${selectedImages.size})` : '批量删除';
+            }
+
+            // 批量删除
+            function bulkDelete() {
+                if (selectedImages.size === 0) return;
+
+                Swal.fire({
+                    title: `确认删除选中的 ${selectedImages.size} 张图片吗?`,
+                    text: "记录与物理文件将会一起删除，此操作不可恢复。",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: '确认删除',
+                    cancelButtonText: '取消',
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        const imageIds = Array.from(selectedImages);
+                        console.log('发送删除请求，图片ID:', imageIds);
+                        axios.delete('/admin/images/bulk-delete', {
+                            data: { ids: imageIds }
+                        }).then(response => {
+                            console.log('删除响应:', response.data);
+                            if (response.data.status) {
+                                modal.close('content-modal');
+                                toastr.success(response.data.message);
+                                setTimeout(function () {
+                                    history.go(0);
+                                }, 1000);
+                            } else {
+                                toastr.error(response.data.message);
+                            }
+                        }).catch(error => {
+                            console.error('删除请求失败:', error);
+                            toastr.error('删除失败，请重试');
+                        });
+                    }
+                });
+            }
 
             function del(id) {
                 Swal.fire({
@@ -371,7 +571,7 @@
                     .replace(/__sha1__/g, image.sha1)
                     .replace(/__width__/g, image.width)
                     .replace(/__height__/g, image.height)
-                    .replace(/__permission__/g, image.permission === {{ \App\Enums\ImagePermission::Public }} ? '<i class="fas fa-eye text-red-500"></i> 公开' : '<i class="fas fa-eye-slash text-green-500"></i> 私有')
+                    .replace(/__permission__/g, image.permission === PUBLIC_PERMISSION ? '<i class="fas fa-eye text-red-500"></i> 公开' : '<i class="fas fa-eye-slash text-green-500"></i> 私有')
                     .replace(/__is_unhealthy__/g, image.is_unhealthy ? '<span class="text-red-500"><i class="fas fa-exclamation-triangle"></i> 是</span>' : '否')
                     .replace(/__uploaded_ip__/g, image.uploaded_ip)
                     .replace(/__created_at__/g, image.created_at);
@@ -409,6 +609,62 @@
 
             $('#modal-content').on('click', '.delete', function (e) {
                 del($(this).data('id'));
+            });
+
+            // 事件监听器
+            document.getElementById('filter_btn').addEventListener('click', applyFilter);
+            document.getElementById('clear_filter').addEventListener('click', clearFilter);
+
+            // 全选按钮事件监听器
+            const selectAllBtn = document.getElementById('select_all');
+            if (selectAllBtn) {
+                console.log('全选按钮找到，绑定事件');
+                selectAllBtn.addEventListener('click', selectAll);
+            } else {
+                console.error('全选按钮未找到！');
+            }
+
+            document.getElementById('select_none').addEventListener('click', selectNone);
+            document.getElementById('bulk_delete').addEventListener('click', bulkDelete);
+            document.getElementById('per_page').addEventListener('change', function() {
+                applyFilter();
+            });
+
+            // 页面加载时调整布局
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', adjustGridLayout);
+            } else {
+                adjustGridLayout();
+            }
+
+            // 测试CSS样式是否生效
+            setTimeout(() => {
+                const testImg = document.querySelector('img');
+                if (testImg) {
+                    const computedStyle = window.getComputedStyle(testImg);
+                    console.log('图片实际尺寸:', computedStyle.width, 'x', computedStyle.height);
+                    console.log('图片类名:', testImg.className);
+                }
+            }, 1000);
+
+            // 复选框变化监听
+            document.addEventListener('change', function(e) {
+                if (e.target.classList.contains('image-checkbox')) {
+                    if (e.target.checked) {
+                        selectedImages.add(e.target.dataset.id);
+                    } else {
+                        selectedImages.delete(e.target.dataset.id);
+                    }
+                    updateBulkDeleteButton();
+                }
+            });
+
+            // 防止复选框点击事件冒泡到图片容器
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('image-checkbox')) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                }
             });
 
         </script>

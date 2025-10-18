@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -18,9 +19,26 @@ class ImageController extends Controller
     public function index(Request $request): View
     {
         $keywords = $request->query('keywords');
+        $startTime = $request->query('start_time');
+        $endTime = $request->query('end_time');
+        $perPage = $request->query('per_page', 40);
+
+        // 验证分页大小
+        $allowedPerPage = [40, 200, 500, 1000];
+        if (!in_array((int)$perPage, $allowedPerPage)) {
+            $perPage = 40;
+        }
+
         $images = Image::query()->with(['user' => function (BelongsTo $belongsTo) {
             $belongsTo->withSum('images', 'size');
-        }, 'album', 'group', 'strategy'])->when($keywords, function (Builder $builder, $keywords) {
+        }, 'album', 'group', 'strategy'])
+        ->when($startTime, function (Builder $builder, $startTime) {
+            $builder->where('created_at', '>=', $startTime);
+        })
+        ->when($endTime, function (Builder $builder, $endTime) {
+            $builder->where('created_at', '<=', $endTime);
+        })
+        ->when($keywords, function (Builder $builder, $keywords) {
             $words = [];
             $qualifiers = [
                 'name:', 'album:', 'group:', 'strategy:', 'email:', 'extension:', 'md5:', 'sha1:', 'ip:', 'is:', 'order:',
@@ -68,7 +86,7 @@ class ImageController extends Controller
                     ->orWhere('origin_name', 'like', "%{$word}%")
                     ->orWhere('alias_name', 'like', "%{$word}%");
             }
-        })->latest()->paginate(40);
+        })->latest()->paginate($perPage);
         $images->getCollection()->each(function (Image $image) {
             $image->append('url', 'pathname', 'thumb_url');
             $image->album?->setVisible(['name']);
@@ -76,7 +94,12 @@ class ImageController extends Controller
             $image->strategy?->setVisible(['name']);
         });
 
-        $images->appends(compact('keywords'));
+        $images->appends(array_filter([
+            'keywords' => $keywords,
+            'start_time' => $startTime,
+            'end_time' => $endTime,
+            'per_page' => $perPage
+        ]));
 
         return view('admin.image.index', compact('images'));
     }
@@ -92,5 +115,47 @@ class ImageController extends Controller
         $image = Image::with('user', 'strategy', 'album')->find($request->route('id'));
         (new UserService())->deleteImages([$image->id]);
         return $this->success('删除成功');
+    }
+
+    public function bulkDelete(Request $request): Response
+    {
+        try {
+            $ids = $request->input('ids', []);
+
+            if (empty($ids) || !is_array($ids)) {
+                return $this->fail('请选择要删除的图片');
+            }
+
+            // 验证ID是否都是数字
+            $ids = array_filter($ids, function($id) {
+                return is_numeric($id) && $id > 0;
+            });
+
+            if (empty($ids)) {
+                return $this->fail('无效的图片ID');
+            }
+
+            // 获取图片信息用于删除
+            $images = Image::with('user', 'strategy', 'album')->whereIn('id', $ids)->get();
+
+            if ($images->isEmpty()) {
+                return $this->fail('未找到要删除的图片');
+            }
+
+            // 使用UserService删除图片（物理删除）
+            $deletedCount = (new UserService())->deleteImages($ids);
+
+            if ($deletedCount > 0) {
+                return $this->success("成功删除 {$deletedCount} 张图片");
+            } else {
+                return $this->fail('删除失败，请重试');
+            }
+        } catch (\Exception $e) {
+            Log::error('批量删除图片失败: ' . $e->getMessage(), [
+                'ids' => $request->input('ids', []),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return $this->fail('删除失败: ' . $e->getMessage());
+        }
     }
 }

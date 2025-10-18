@@ -83,6 +83,7 @@ Route::group(['prefix' => 'admin', 'middleware' => ['auth.admin']], function () 
     Route::group(['prefix' => 'images'], function () {
         Route::get('', [AdminImageController::class, 'index'])->name('admin.images');
         Route::put('{id}', [AdminImageController::class, 'update'])->name('admin.image.update');
+        Route::delete('bulk-delete', [AdminImageController::class, 'bulkDelete'])->name('admin.images.bulk.delete');
         Route::delete('{id}', [AdminImageController::class, 'delete'])->name('admin.image.delete');
     });
 
