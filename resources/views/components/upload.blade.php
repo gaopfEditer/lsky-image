@@ -415,6 +415,9 @@
                                 // 成功上传
                                 setStatus(queue[id], UPLOAD_SUCCESS);
                                 queue[id].$preview.attr('uploaded', true);
+                                
+                                // 隐藏单个上传按钮
+                                queue[id].$preview.find('[data-operate="upload"]').hide();
 
                                 // 添加链接到结果区域
                                 let links = response.data.success_files[successIndex].links;
