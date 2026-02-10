@@ -124,6 +124,11 @@ class ImageController extends Controller
                 if ($request->has('strategy_id')) {
                     $singleFileRequest->merge(['strategy_id' => $request->input('strategy_id')]);
                 }
+                
+                // 确保user_id被正确传递
+                if ($request->has('user_id')) {
+                    $singleFileRequest->merge(['user_id' => $request->input('user_id')]);
+                }
 
                 $image = $service->store($singleFileRequest);
 
@@ -257,7 +262,7 @@ class ImageController extends Controller
                 return $this->fail('ZIP文件中没有找到支持的图片文件');
             }
 
-            Log::info('开始处理ZIP文件', [
+            Log::info('开始处理ZIP文件 ', [
                 'zip_file' => $zipFile->getClientOriginalName(),
                 'total_files' => count($extractedFiles),
                 'image_files' => count($imageFiles),

@@ -91,6 +91,7 @@
         let allowSuffixes = @json($_group->configs->get(\App\Enums\GroupConfigKey::AcceptedFileSuffixes));
         let maxSize = {{ $_group->configs->get(\App\Enums\GroupConfigKey::MaximumFileSize) * 1024 }};
         let pastedAction = '{{ Auth::check() ? Auth::user()->configs->get(\App\Enums\UserConfigKey::PastedAction) : \App\Enums\PastedAction::Waiting }}';
+        let currentUserId = {{ Auth::check() ? Auth::user()->id : 'null' }};
     </script>
     <script>
         (new ClipboardJS('#copy-all', {
@@ -371,8 +372,13 @@
             // 添加CSRF token
             formData.append('_token', $('meta[name="csrf-token"]').attr('content'));
 
+            // 添加user_id参数（如果用户已登录） 
+            if (currentUserId) {
+                formData.append('user_id', currentUserId);
+            }
+
             // 添加strategy_id参数（从单个上传中获取）
-            let strategyId = $('#strategy_id').val();
+            let strategyId = $('#strategy-selected').data('id');
             if (strategyId) {
                 formData.append('strategy_id', strategyId);
             }

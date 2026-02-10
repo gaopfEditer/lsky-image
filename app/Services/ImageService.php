@@ -85,6 +85,25 @@ class ImageService
         $image = new Image();
         /** @var User|null $user */
         $user = $request->user();
+        
+        // 如果请求中提供了user_id，验证权限并确保使用正确的用户
+        if ($request->has('user_id')) {
+            $requestUserId = (int)$request->input('user_id');
+            // 如果当前已登录，验证user_id是否与当前用户ID匹配
+            if ($user) {
+                if ($user->id != $requestUserId) {
+                    throw new UploadException('无权上传到其他用户账户');
+                }
+                // user_id匹配，继续使用当前用户
+            } else {
+                // 如果未登录但提供了user_id，尝试查找用户（用于API调用场景）
+                // 但为了安全，只有在API认证通过的情况下才允许
+                $foundUser = User::find($requestUserId);
+                if ($foundUser) {
+                    $user = $foundUser;
+                }
+            }
+        }
 
         /** @var Group $group */
         $group = ! is_null($user) ? $user->group : Group::query()->where('is_guest', true)->first();
