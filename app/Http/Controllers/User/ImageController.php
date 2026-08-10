@@ -8,6 +8,7 @@ use App\Http\Requests\ImageRenameRequest;
 use App\Models\Album;
 use App\Models\Image;
 use App\Models\User;
+use App\Services\AlbumStorageService;
 use App\Services\UserService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -91,23 +92,37 @@ class ImageController extends Controller
     {
         /** @var User $user */
         $user = Auth::user();
-        DB::transaction(function () use ($user, $request) {
-            /** @var null|Album $album */
-            $album = $user->albums()->find((int) $request->input('id'));
-            $user->images()->whereIn('id', $request->input('selected'))->update([
-                'album_id' => $album->id ?? null,
-            ]);
-            if ($album) {
-                $album->image_num = $album->images()->count();
-                $album->save();
-            }
-            if ($albumId = (int) $request->input('album_id')) {
-                /** @var Album $originAlbum */
-                $originAlbum = $user->albums()->find($albumId);
-                $originAlbum->image_num = $originAlbum->images()->count();
-                $originAlbum->save();
-            }
-        });
+        try {
+            DB::transaction(function () use ($user, $request) {
+                /** @var null|Album $album */
+                $album = $user->albums()->find((int) $request->input('id'));
+                $images = $user->images()
+                    ->with(['strategy', 'album'])
+                    ->whereIn('id', (array) $request->input('selected'))
+                    ->get();
+
+                $affectedAlbumIds = $images->pluck('album_id')->filter()->unique()->all();
+                if ($album) {
+                    $affectedAlbumIds[] = $album->id;
+                }
+                if ($albumId = (int) $request->input('album_id')) {
+                    $affectedAlbumIds[] = $albumId;
+                }
+
+                (new AlbumStorageService())->moveImagesToAlbum($images, $album);
+
+                foreach (array_unique($affectedAlbumIds) as $id) {
+                    /** @var Album|null $row */
+                    $row = $user->albums()->find($id);
+                    if ($row) {
+                        $row->image_num = $row->images()->count();
+                        $row->save();
+                    }
+                }
+            });
+        } catch (\Throwable $e) {
+            return $this->fail(config('app.debug') ? $e->getMessage() : '移动失败，请稍后重试');
+        }
         return $this->success('移动成功');
     }
 

@@ -67,6 +67,8 @@ Route::group(['middleware' => ['auth']], function () {
         Route::post('albums', [AlbumController::class, 'create'])->name('user.album.create');
         Route::put('albums/{id}', [AlbumController::class, 'update'])->name('user.album.update');
         Route::delete('albums/{id}', [AlbumController::class, 'delete'])->name('user.album.delete');
+        Route::post('albums/backup', [AlbumController::class, 'backup'])->name('user.albums.backup');
+        Route::post('albums/sync', [AlbumController::class, 'sync'])->name('user.albums.sync');
     });
 });
 

@@ -117,10 +117,24 @@
 
     <script type="text/html" id="albums-container-tpl">
         <div id="albums-container" class="flex flex-col justify-center items-center w-full p-3 space-y-2">
+            <div id="album-backup-bar" class="w-full flex items-center justify-between gap-2 pb-1 flex-wrap">
+                <label class="text-xs text-gray-500 flex items-center gap-1 cursor-pointer select-none">
+                    <input type="checkbox" id="album-backup-check-all" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                    全选
+                </label>
+                <div class="flex items-center gap-1">
+                    <button type="button" id="album-sync-btn" class="text-xs py-1 px-2 rounded bg-slate-500 text-white hover:bg-slate-600 disabled:opacity-50" disabled title="将相册内图片移动到以相册命名的文件夹">
+                        <i class="fas fa-folder"></i> 同步文件夹
+                    </button>
+                    <button type="button" id="album-backup-btn" class="text-xs py-1 px-2 rounded bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50" disabled>
+                        <i class="fas fa-file-archive"></i> 备份选中
+                    </button>
+                </div>
+            </div>
             <div id="album-add" class="flex flex-col w-full hidden border rounded p-2">
                 <p class="error-message text-white p-2 mb-2 text-sm bg-red-500 rounded hidden"></p>
                 <form class="w-full space-y-2" action="/user/albums">
-                    <input type="text" class="w-full rounded px-2.5 py-1.5 text-sm border-0 bg-gray-200" name="name" placeholder="请输入名称">
+                    <input type="text" class="w-full rounded px-2.5 py-1.5 text-sm border-0 bg-gray-200" name="name" placeholder="请输入名称（字母数字-_）">
                     <textarea class="w-full resize-y rounded-md text-sm border-0 bg-gray-200" name="intro" placeholder="请输入简介"></textarea>
                     <button class="w-full py-1 px-2 bg-indigo-500 text-white text-sm text-center tracking-wider font-semibold rounded-md">创建相册</button>
                 </form>
@@ -130,8 +144,12 @@
 
     <script type="text/html" id="albums-item-tpl">
         <a href="javascript:void(0)" data-id="__id__" data-json='__json__' title="__intro__" class="albums-item flex justify-between items-center group px-2 h-7 rounded w-full bg-gray-100 text-gray-800 hover:bg-blue-300 hover:text-white">
-            <span class="text-sm truncate w-[80%] name">__name__</span>
+            <label class="album-backup-pick flex items-center mr-1 shrink-0" onclick="event.stopPropagation()">
+                <input type="checkbox" class="album-backup-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" value="__id__">
+            </label>
+            <span class="text-sm truncate w-[70%] name">__name__</span>
             <div class="flex items-center justify-center space-x-1 hidden group-hover:block">
+                <span class="backup" title="备份此相册"><i class="fas fa-file-archive text-xs text-emerald-500"></i></span>
                 <span class="update"><i class="fas fa-edit text-xs"></i></span>
                 <span class="delete"><i class="fas fa-trash-alt text-xs text-red-400"></i></span>
             </div>
@@ -313,13 +331,97 @@
                 imagesInfinite.refresh(params);
             }
 
+            const downloadAlbumBackup = (ids) => {
+                ids = (ids || []).filter(Boolean);
+                if (!ids.length) {
+                    return toastr.warning('请先勾选要备份的相册');
+                }
+                const $btn = $('#album-backup-btn');
+                $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 打包中...');
+                axios.post('{{ route('user.albums.backup') }}', {ids}, {responseType: 'blob'}).then(response => {
+                    const disposition = response.headers['content-disposition'] || '';
+                    let filename = 'albums-backup.zip';
+                    const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/i);
+                    if (match && match[1]) {
+                        filename = decodeURIComponent(match[1].replace(/['"]/g, ''));
+                    }
+                    // 后端失败时可能返回 JSON
+                    const type = response.data.type || '';
+                    if (type.indexOf('application/json') !== -1) {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                            try {
+                                const json = JSON.parse(reader.result);
+                                toastr.error(json.message || '备份失败');
+                            } catch (e) {
+                                toastr.error('备份失败');
+                            }
+                        };
+                        reader.readAsText(response.data);
+                        return;
+                    }
+                    const url = window.URL.createObjectURL(new Blob([response.data], {type: 'application/zip'}));
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                    toastr.success('备份已开始下载');
+                }).catch(() => {
+                    toastr.error('备份失败，请稍后重试');
+                }).finally(() => {
+                    syncAlbumBackupBtn();
+                });
+            };
+
+            const syncAlbumBackupBtn = () => {
+                const checked = $('#albums-container .album-backup-checkbox:checked').length;
+                const $btn = $('#album-backup-btn');
+                const $sync = $('#album-sync-btn');
+                if ($btn.length) {
+                    $btn.prop('disabled', checked === 0)
+                        .html('<i class="fas fa-file-archive"></i> 备份选中' + (checked ? ` (${checked})` : ''));
+                }
+                if ($sync.length) {
+                    $sync.prop('disabled', checked === 0)
+                        .html('<i class="fas fa-folder"></i> 同步文件夹' + (checked ? ` (${checked})` : ''));
+                }
+            };
+
+            const syncAlbumFolders = (ids) => {
+                ids = (ids || []).filter(Boolean);
+                if (!ids.length) {
+                    return toastr.warning('请先勾选要同步的相册');
+                }
+                const $sync = $('#album-sync-btn');
+                $sync.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 同步中...');
+                axios.post('{{ route('user.albums.sync') }}', {ids}).then(response => {
+                    if (response.data.status) {
+                        toastr.success(response.data.message || '同步完成');
+                    } else {
+                        toastr.error(response.data.message || '同步失败');
+                    }
+                }).catch(() => {
+                    toastr.error('同步失败，请稍后重试');
+                }).finally(() => {
+                    syncAlbumBackupBtn();
+                });
+            };
+
             const getAlbums = (options, callback) => {
                 let title = '__title__ <i class="cursor-pointer fas fa-plus text-blue-500" onclick="$(\'#album-add\').toggleClass(\'hidden\')"></i>'.replace(/__title__/g, (options || {}).title || '我的相册');
                 let content = $('#albums-container-tpl').html();
+                const isPickMode = typeof callback === 'function';
                 drawer.toggle(title, content, function () {
                     let $albums = $('#albums-container');
                     const CREATE_ID = '#album-add';
                     const UPDATE_ID = '#album-edit';
+                    if (isPickMode) {
+                        $albums.find('#album-backup-bar').remove();
+                        $albums.find('.album-backup-pick').remove();
+                    }
                     albumsInfinite = utils.infiniteScroll('#drawer-content', {
                         url: '{{ route('user.albums') }}',
                         success: function (response) {
@@ -351,6 +453,10 @@
                             }
 
                             $albums.append(html);
+                            if (isPickMode) {
+                                $albums.find('.album-backup-pick').remove();
+                            }
+                            syncAlbumBackupBtn();
 
                             callback && callback.call(this, $albums.get(0));
                         }
@@ -375,6 +481,36 @@
                         albumsInfinite.refresh({page: 1});
                     }
 
+                    $albums.off('change', '.album-backup-checkbox, #album-backup-check-all').on('change', '.album-backup-checkbox', function () {
+                        syncAlbumBackupBtn();
+                    });
+                    $albums.off('change', '#album-backup-check-all').on('change', '#album-backup-check-all', function () {
+                        $albums.find('.album-backup-checkbox').prop('checked', this.checked);
+                        syncAlbumBackupBtn();
+                    });
+                    $albums.off('click', '#album-backup-btn').on('click', '#album-backup-btn', function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const ids = $albums.find('.album-backup-checkbox:checked').map(function () {
+                            return $(this).val();
+                        }).get();
+                        downloadAlbumBackup(ids);
+                    });
+                    $albums.off('click', '#album-sync-btn').on('click', '#album-sync-btn', function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const ids = $albums.find('.album-backup-checkbox:checked').map(function () {
+                            return $(this).val();
+                        }).get();
+                        syncAlbumFolders(ids);
+                    });
+
+                    $albums.off('click', '.backup').on('click', '.backup', function (e) {
+                        e.stopPropagation();
+                        const id = $(this).closest(ALBUM_ITEM).data('id');
+                        downloadAlbumBackup([id]);
+                    });
+
                     $albums.off('click', '.update').on('click', '.update', function (e) {
                         e.stopPropagation();
                         let selectedId = $albums.find(UPDATE_ID).data('id');
@@ -383,7 +519,7 @@
                         if (selectedId !== $item.data('id')) {
                             $item.after($('#album-update-tpl').html()
                                 .replace(/__id__/g, $item.data('id'))
-                                .replace(/__name__/g, $item.find('>span').html())
+                                .replace(/__name__/g, $item.find('.name').html())
                                 .replace(/__intro__/g, $item.attr('title'))
                             );
                         }
@@ -393,7 +529,7 @@
                         e.stopPropagation();
                         Swal.fire({
                             title: '确认删除该相册?',
-                            text: "删除后相册中的图片将会被移出。",
+                            text: "删除后相册文件夹中的图片会移到日期目录，并解除相册关联。",
                             icon: 'warning',
                             showCancelButton: true,
                             confirmButtonColor: '#3085d6',

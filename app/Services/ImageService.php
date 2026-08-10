@@ -27,6 +27,7 @@ use App\Enums\Watermark\FontOption;
 use App\Enums\Watermark\ImageOption;
 use App\Enums\Watermark\Mode;
 use App\Exceptions\UploadException;
+use App\Models\Album;
 use App\Models\Group;
 use App\Models\Image;
 use App\Models\Strategy;
@@ -155,11 +156,13 @@ class ImageService
                 throw new UploadException('储存空间不足');
             }
 
-            // 图片保存至默认相册(若有)
-            if ($albumId = $user->configs->get(UserConfigKey::DefaultAlbum)) {
-                if ($user->albums()->where('id', $albumId)->exists()) {
-                    $image->album_id = $albumId;
-                }
+            // 指定相册优先，否则使用默认相册
+            $albumId = (int) $request->input('album_id', 0);
+            if ($albumId <= 0) {
+                $albumId = (int) $user->configs->get(UserConfigKey::DefaultAlbum);
+            }
+            if ($albumId > 0 && $user->albums()->where('id', $albumId)->exists()) {
+                $image->album_id = $albumId;
             }
 
             $image->user_id = $user->id;
@@ -218,18 +221,38 @@ class ImageService
             }
         }
 
-        $filename = $this->replacePathname(
-            $configs->get(GroupConfigKey::PathNamingRule).'/'.$configs->get(GroupConfigKey::FileNamingRule), $file,
-        );
-        $pathname = $filename.".{$extension}";
+        $fileBasename = $this->replacePathname(
+            $configs->get(GroupConfigKey::FileNamingRule), $file,
+        ).".{$extension}";
+
+        /** @var Album|null $album */
+        $album = null;
+        if (! is_null($user) && $image->album_id) {
+            $album = $user->albums()->find($image->album_id);
+        }
+
+        // 有相册时写入「相册名」文件夹；无相册时沿用组路径命名规则
+        if ($album) {
+            $location = (new AlbumStorageService())->buildLocation($album, $fileBasename);
+            $pathname = $location['pathname'];
+            $path = $location['path'];
+            $name = $location['name'];
+        } else {
+            $filename = $this->replacePathname(
+                $configs->get(GroupConfigKey::PathNamingRule).'/'.$configs->get(GroupConfigKey::FileNamingRule), $file,
+            );
+            $pathname = $filename.".{$extension}";
+            $path = $configs->get(GroupConfigKey::PathNamingRule) ? dirname($pathname) : '';
+            $name = basename($pathname);
+        }
 
         [$width, $height] = @getimagesize($file->getRealPath()) ?: [400, 400];
 
         $image->fill([
             'md5' => md5_file($file->getRealPath()),
             'sha1' => sha1_file($file->getRealPath()),
-            'path' => $configs->get(GroupConfigKey::PathNamingRule) ? dirname($pathname) : '',
-            'name' => basename($pathname),
+            'path' => $path,
+            'name' => $name,
             'origin_name' => $file->getClientOriginalName(),
             'size' => $file->getSize() / 1024,
             'mimetype' => $file->getMimeType(),
@@ -257,7 +280,23 @@ class ImageService
             }
             if (is_resource($handle)) @fclose($handle);
         } else {
-            $image->fill($existing->only('path', 'name'));
+            // 已存在物理文件：无相册时复用原路径；有相册则复制到相册目录
+            if ($album) {
+                try {
+                    if (! $filesystem->fileExists($pathname) && $filesystem->fileExists($existing->pathname)) {
+                        $stream = $filesystem->readStream($existing->pathname);
+                        $filesystem->writeStream($pathname, $stream);
+                        if (is_resource($stream)) {
+                            @fclose($stream);
+                        }
+                    }
+                } catch (FilesystemException $e) {
+                    Utils::e($e, '复制图片到相册目录时出现异常');
+                    throw new UploadException(config('app.debug', false) ? $e->getMessage() : '图片上传失败');
+                }
+            } else {
+                $image->fill($existing->only('path', 'name'));
+            }
         }
 
         // 增加当前用户的图片数量和相册图片数量
